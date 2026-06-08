@@ -20,17 +20,34 @@ AVATAR_DATA_DIR = "."
 X_DRIVE_ID = "1XZ3x7q96mYn88zc75oaPSv1_oktUgu-G"
 y_DRIVE_ID = "1KkFb5zL21-HdVyLb9mP7N_UEn5e19eiL"
 
+# 🔄 الدالة الجديدة والمضمونة لتنزيل الملفات الكبيرة وتخطي حماية جوجل درايف
 def download_file_from_drive(file_id, destination):
-    if os.path.exists(destination) and os.path.getsize(destination) > 0:
+    if os.path.exists(destination) and os.path.getsize(destination) > 1000:
         return
+        
     print(f"Downloading {destination} from Google Drive...")
-    url = f"https://docs.google.com/uc?export=download&id={file_id}"
+    URL = "https://docs.google.com/uc?export=download"
     session = requests.Session()
-    response = session.get(url, stream=True)
+    
+    # طلب أول عشان نشوف هل فيه توكن تأكيد (Confirmation Token) للملفات الكبيرة
+    response = session.get(URL, params={'id': file_id}, stream=True)
+    token = None
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            token = value
+            break
+            
+    # لو لقرينا التوكن، بنبعت طلب تاني بيه عشان نتخطى صفحة التحذير
+    if token:
+        params = {'id': file_id, 'confirm': token}
+        response = session.get(URL, params=params, stream=True)
+        
+    # حفظ الملف الحقيقي بالكامل
     with open(destination, "wb") as f:
         for chunk in response.iter_content(chunk_size=32768):
             if chunk:
                 f.write(chunk)
+
 @app.on_event("startup")
 def startup_event():
     try:
